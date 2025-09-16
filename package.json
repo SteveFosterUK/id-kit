@@ -38,7 +38,7 @@
   "scripts": {
     "build": "npm run build:esm && npm run build:cjs",
     "build:esm": "tsc -p tsconfig.build.esm.json",
-    "build:cjs": "tsc -p tsconfig.build.cjs.json && node -e \"const fs=require(fs); fs.renameSync(dist/cjs/index.js,dist/cjs/index.cjs);\"",
+    "build:cjs": "tsc -p tsconfig.build.cjs.json && node -e \"const fs=require('fs'); fs.renameSync('dist/cjs/index.js','dist/cjs/index.cjs');\"",
     "clean": "rm -rf dist coverage",
     "lint": "eslint . --ext .ts",
     "format": "prettier -w .",
