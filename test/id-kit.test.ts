@@ -8,6 +8,30 @@ function seeded(seed: number) {
   };
 }
 
+interface CryptoLike {
+  getRandomValues<T extends ArrayBufferView>(array: T): T;
+}
+
+function withMockCrypto<T>(mock: CryptoLike, run: () => T): T {
+  const prevDesc = Object.getOwnPropertyDescriptor(globalThis as object, "crypto");
+  Object.defineProperty(globalThis, "crypto", {
+    value: mock,
+    configurable: true,
+    writable: true,
+    enumerable: true,
+  });
+  try {
+    return run();
+  } finally {
+    if (prevDesc) {
+      Object.defineProperty(globalThis, "crypto", prevDesc);
+    } else {
+      // delete without `any`
+      delete (globalThis as unknown as { crypto?: unknown }).crypto;
+    }
+  }
+}
+
 describe("id-kit", () => {
   test("default: 16-digit random (Mullvad-style, no checksum)", () => {
     const id = generateId({ rng: seeded(12) });
@@ -118,21 +142,23 @@ describe("id-kit", () => {
   });
 
   test("generateId uses Web Crypto when available (useCrypto: true)", () => {
-    const originalCrypto = (globalThis as any).crypto;
-    (globalThis as any).crypto = {
-      getRandomValues: (arr: Uint32Array) => {
-        arr[0] = 0xdeadbeef;
-        return arr;
+    const mock: CryptoLike = {
+      getRandomValues<T extends ArrayBufferView>(array: T): T {
+        // Fill deterministically so the test is stable
+        if (array instanceof Uint32Array) {
+          array[0] = 0xdeadbeef;
+        } else {
+          // For completeness if a different view is used later
+          new Uint8Array(array.buffer, array.byteOffset, array.byteLength).fill(0xbe);
+        }
+        return array;
       },
     };
-    try {
-      const id = generateId({ useCrypto: true });
-      expect(id).toMatch(/^\d{16}$/);
 
-      expect(validateId(id)).toBe(true);
-    } finally {
-      (globalThis as any).crypto = originalCrypto;
-    }
+    const id = withMockCrypto(mock, () => generateId({ useCrypto: true }));
+
+    expect(id).toMatch(/^\d{16}$/);
+    expect(validateId(id)).toBe(true);
   });
 
   test("luhnValidate rejects too-short input", () => {
