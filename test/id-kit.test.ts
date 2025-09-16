@@ -1,4 +1,14 @@
-import { generateId, validateId, normalizeId, formatId, luhnChecksumDigit, luhnValidate } from "../src";
+import {
+  generateId,
+  validateId,
+  normalizeId,
+  formatId,
+  luhnChecksumDigit,
+  luhnValidate,
+  normalizeIdForCharset,
+} from "../src";
+import { mod36CheckChar, mod36Validate } from "../src/mod36";
+import { ALPHABET_BASE36, ALPHABET_NUM, mapToCharset, randChar } from "../src/alphabet";
 
 function seeded(seed: number) {
   let s = seed >>> 0; // force to uint32
@@ -125,7 +135,7 @@ describe("id-kit", () => {
   test("formatId throws on wrong length", () => {
     const id = generateId(); // 16 digits
     // Remove one digit so length is wrong for default 4x4 formatting
-    expect(() => formatId(id.slice(0, 15), { separator: " " })).toThrow(/expected 16 digits/i);
+    expect(() => formatId(id.slice(0, 15), { separator: " " })).toThrow(/expected 16 characters/i);
   });
 
   test("validateId rejects non-digit input", () => {
@@ -163,6 +173,120 @@ describe("id-kit", () => {
 
   test("luhnValidate rejects too-short input", () => {
     expect(luhnValidate("4")).toBe(false);
+  });
+
+  test("alphanumeric: generates 16 chars and validates (no checksum)", () => {
+    const id = generateId({ charset: "alphanumeric", rng: seeded(42) });
+    expect(id).toMatch(/^[0-9A-Z]{16}$/);
+    expect(validateId(id, { charset: "alphanumeric" })).toBe(true);
+  });
+
+  test("alphanumeric + mod36: checksum roundtrip", () => {
+    // fixed body to make assertion stable
+    const body = "ABCDEFGH1234567"; // 15 chars
+    const full = body + mod36CheckChar(body);
+    expect(validateId(full, { charset: "alphanumeric", algorithm: "mod36" })).toBe(true);
+    const bad = body + (full[full.length - 1] === "A" ? "B" : "A");
+    expect(validateId(bad, { charset: "alphanumeric", algorithm: "mod36" })).toBe(false);
+  });
+
+  test("formatId works with alphanumeric groups", () => {
+    const raw = "ABCD1234WXYZ5678";
+    const pretty = formatId(raw, { charset: "alphanumeric", separator: " ", groups: 4, groupSize: 4 });
+    expect(pretty).toBe("ABCD 1234 WXYZ 5678");
+  });
+
+  test("reject invalid algorithm/charset combos", () => {
+    expect(() => generateId({ charset: "alphanumeric", algorithm: "luhn" }))
+      .toThrow(/requires charset "numeric"/i);
+    expect(() => generateId({ charset: "numeric", algorithm: "mod36" }))
+      .toThrow(/requires charset "alphanumeric"/i);
+  });
+
+  describe("mod36", () => {
+    test("mod36CheckChar computes a check char for a valid body", () => {
+      // Known simple body: sum % 36 === 0 -> check char = '0'
+      expect(mod36CheckChar("0")).toBe("0");
+
+      // Another stable example (non-trivial loop work):
+      // Just sanity: should return a single base36 char
+      const chk = mod36CheckChar("ABCDEFGH1234567");
+      expect(chk).toMatch(/^[0-9A-Z]$/);
+    });
+
+// --- Error branch in mod36CheckChar (invalid char) ---
+    test("mod36CheckChar throws on non-[0-9A-Z] characters", () => {
+      expect(() => mod36CheckChar("ABC-DEF")).toThrow(/mod36CheckChar/i);
+      expect(() => mod36CheckChar("abc")).toThrow(/mod36CheckChar/i); // lower-case rejected
+    });
+
+// --- Guard branch in mod36Validate (too short / invalid) ---
+    test("mod36Validate returns false for too-short input", () => {
+      expect(mod36Validate("A")).toBe(false); // < 2 chars
+    });
+
+    test("mod36Validate returns false for invalid characters", () => {
+      expect(mod36Validate("A$")).toBe(false);
+    });
+
+// --- Happy path already covered, but one more explicit truthy check ---
+    test("mod36Validate passes for body+check from mod36CheckChar", () => {
+      const body = "ABCDEFGH1234567";
+      const full = body + mod36CheckChar(body);
+      expect(mod36Validate(full)).toBe(true);
+    });
+  });
+
+  test("normalizeIdForCharset: alphanumeric uppercases + strips non-members", () => {
+    const out = normalizeIdForCharset("ab-12_z!", "alphanumeric");
+    expect(out).toBe("AB12Z");
+  });
+
+  test('generateId throws when algorithm "luhn" is used with charset "alphanumeric"', () => {
+    expect(() => generateId({ charset: "alphanumeric", algorithm: "luhn" }))
+      .toThrow(/requires charset "numeric"/i);
+  });
+
+  test('generateId throws when algorithm "mod36" is used with charset "numeric"', () => {
+    expect(() => generateId({ charset: "numeric", algorithm: "mod36" }))
+      .toThrow(/requires charset "alphanumeric"/i);
+  });
+
+  test("generateId with alphanumeric + mod36 actually appends the check char and validates", () => {
+    const id = generateId({ charset: "alphanumeric", algorithm: "mod36", rng: seeded(9) });
+    expect(id).toMatch(/^[0-9A-Z]{16}$/);
+    expect(validateId(id, { charset: "alphanumeric", algorithm: "mod36" })).toBe(true);
+
+    // also hit the formatted return path for alphanumeric
+    const pretty = formatId(id, { charset: "alphanumeric", separator: " " });
+    expect(pretty).toMatch(/^[0-9A-Z]{4}( [0-9A-Z]{4}){3}$/);
+  });
+
+  describe("alphabet helpers", () => {
+    test("mapToCharset: numeric filters to digits only", () => {
+      const out = mapToCharset("ab12 cd-3Z!", "numeric");
+      expect(out).toBe("123"); // letters stripped, only digits kept
+    });
+
+    test("mapToCharset: alphanumeric uppercases + strips non-members", () => {
+      const out = mapToCharset("ab12 cd-3z!", "alphanumeric");
+      expect(out).toBe("AB12CD3Z");
+      expect(/^[0-9A-Z]+$/.test(out)).toBe(true);
+    });
+
+    test("randChar: numeric uses 0..9 table", () => {
+      const zero = () => 0;                 // idx 0
+      const almostOne = () => 0.9999999;    // idx length-1
+      expect(randChar(zero, "numeric")).toBe(ALPHABET_NUM[0]);               // '0'
+      expect(randChar(almostOne, "numeric")).toBe(ALPHABET_NUM[ALPHABET_NUM.length - 1]); // '9'
+    });
+
+    test("randChar: alphanumeric uses 0..9A..Z table", () => {
+      const zero = () => 0;                 // idx 0
+      const almostOne = () => 0.9999999;    // idx 35
+      expect(randChar(zero, "alphanumeric")).toBe(ALPHABET_BASE36[0]);               // '0'
+      expect(randChar(almostOne, "alphanumeric")).toBe(ALPHABET_BASE36[ALPHABET_BASE36.length - 1]); // 'Z'
+    });
   });
 
   describe("luhnChecksumDigit", () => {
