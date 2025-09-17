@@ -57,14 +57,38 @@ function getRng(opts: { rng?: () => number; useCrypto?: boolean }): () => number
   return Math.random;
 }
 
+/**
+ * Normalizes an input string by mapping its characters to the "numeric" charset.
+ * This removes or converts any characters not in the numeric set (digits 0-9).
+ *
+ * @param input - The input string to normalize.
+ * @returns The normalized string consisting only of numeric characters.
+ */
 export function normalizeId(input: string): string {
   return mapToCharset(input, "numeric");
 }
 
+/**
+ * Normalizes an input string by mapping its characters to the specified charset.
+ * This removes or converts any characters not in the given charset.
+ *
+ * @param input - The input string to normalize.
+ * @param charset - The target charset to map to ("numeric" or "alphanumeric").
+ * @returns The normalized string consisting only of characters in the specified charset.
+ */
 export function normalizeIdForCharset(input: string, charset: Charset): string {
   return mapToCharset(input, charset);
 }
 
+/**
+ * Formats an input string into groups separated by a specified separator.
+ * The input is normalized to the given charset before formatting.
+ * Throws an error if the input length does not match the expected total length.
+ *
+ * @param input - The input string to format.
+ * @param opts - Formatting options including groups, groupSize, separator, and charset.
+ * @returns The formatted string with groups separated by the separator.
+ */
 export function formatId(input: string, opts: FormatOptions = {}): string {
   const groups = opts.groups ?? DEFAULT_GROUPS;
   const groupSize = opts.groupSize ?? DEFAULT_GROUP_SIZE;
@@ -86,9 +110,13 @@ export function formatId(input: string, opts: FormatOptions = {}): string {
 }
 
 /**
- * Default: 16 random digits (Mullvad-style).
- * If algorithm === "luhn" (numeric), last char is Luhn checksum.
- * If algorithm === "mod36" (alphanumeric), last char is mod36 check.
+ * Generates a random ID string based on the provided options.
+ * Supports numeric or alphanumeric charsets, optional grouping and separators,
+ * and optional checksum algorithms ("luhn" for numeric, "mod36" for alphanumeric).
+ *
+ * @param options - Generation options including groups, groupSize, totalLength, separator, rng, useCrypto, algorithm, and charset.
+ * @returns The generated ID string, optionally formatted with groups and separators.
+ * @throws If invalid combinations of options are provided or total length is too short.
  */
 export function generateId(options: GenerateOptions = {}): string {
   const groups = options.groups ?? DEFAULT_GROUPS;
@@ -135,6 +163,14 @@ export function generateId(options: GenerateOptions = {}): string {
     : full;
 }
 
+/**
+ * Validates an input ID string against the specified options.
+ * Checks length, charset conformity, and optional checksum algorithms.
+ *
+ * @param input - The input ID string to validate.
+ * @param opts - Validation options including groups, groupSize, totalLength, algorithm, and charset.
+ * @returns True if the ID is valid according to the options; false otherwise.
+ */
 export function validateId(input: string, opts: ValidateOptions = {}): boolean {
   const groups = opts.groups ?? DEFAULT_GROUPS;
   const groupSize = opts.groupSize ?? DEFAULT_GROUP_SIZE;
