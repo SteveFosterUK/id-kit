@@ -1,12 +1,12 @@
 {
-  "name": "idkit",
+  "name": "structured-id",
   "version": "0.1.0",
   "description": "Generate and validate structured IDs — numeric or alphanumeric, with optional Luhn or mod36 checksums. Zero dependencies. TypeScript.",
   "license": "MIT",
   "author": "Steve Foster",
   "repository": {
     "type": "git",
-    "url": "https://github.com/SteveFosterUK/id-kit.git"
+    "url": "https://github.com/SteveFosterUK/structured-id.git"
   },
   "keywords": [
     "id",
@@ -21,7 +21,8 @@
     "typescript",
     "validation",
     "mullvad",
-    "random"
+    "random",
+    "structured-id"
   ],
   "type": "module",
   "exports": {

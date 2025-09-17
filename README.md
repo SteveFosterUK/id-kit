@@ -1,4 +1,4 @@
-# id-kit
+# structured-id
 
 Generate and validate **structured IDs** with ease and flexibility.
 
@@ -8,12 +8,52 @@ Generate and validate **structured IDs** with ease and flexibility.
 - ✅ Configurable RNG (`Math.random`, Web Crypto via `useCrypto`, or custom seeded RNG)
 - ✅ Zero runtime dependencies • TypeScript types included • ESM + CJS
 
-[![CI](https://github.com/SteveFosterUK/id-kit/actions/workflows/ci.yml/badge.svg)](https://github.com/SteveFosterUK/id-kit/actions)
-[![npm version](https://img.shields.io/npm/v/idkit.svg)](https://www.npmjs.com/package/idkit)
-![License](https://img.shields.io/npm/l/idkit.svg)
+[![CI](https://github.com/SteveFosterUK/structured-id/actions/workflows/ci.yml/badge.svg)](https://github.com/SteveFosterUK/structured-id/actions)
+[![npm version](https://img.shields.io/npm/v/structured-id.svg)](https://www.npmjs.com/package/structured-id)
+![License](https://img.shields.io/npm/l/structured-id.svg)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue?logo=typescript)
 ![ESM + CJS](https://img.shields.io/badge/modules-ESM%20%2B%20CJS-green)
-[![GitHub](https://img.shields.io/badge/GitHub-idkit-181717?logo=github)](https://github.com/SteveFosterUK/id-kit)
+[![GitHub](https://img.shields.io/badge/GitHub-structured-id-181717?logo=github)](https://github.com/SteveFosterUK/structured-id)
+---
+
+## What is a Structured ID?
+
+A **Structured ID** is an identifier generated with a **predefined structure**.
+Unlike a raw random string, a structured ID follows rules you define at generation time, such as:
+
+- **Length** — total number of characters (e.g. 16, 20, 24).
+- **Grouping** — split into chunks for readability (e.g. `1234-5678-9012-3456`).
+- **Charset** — restrict characters (numeric only, or alphanumeric uppercase).
+- **Checksum (optional)** — append a validation digit/character to detect typos.
+
+For example, you can generate a 16-character alphanumeric ID with a mod36 checksum, grouped into 4 groups of 4 characters each, making it easy to read and verify:
+
+```ts
+import { generateId, formatId, validateId } from "structured-id";
+
+// generate a 16-character alphanumeric ID with mod36 checksum
+const id = generateId({ charset: "alphanumeric", totalLength: 16, algorithm: "mod36" });
+const formatted = formatId(id, { separator: "-", groupSize: 4, charset: "alphanumeric" });
+
+console.log("Raw ID:", id);
+// e.g. "AB12CD34EF56GH78"
+
+console.log("Formatted ID:", formatted);
+// e.g. "AB12-CD34-EF56-GH78"
+
+console.log("Is valid?", validateId(id, { charset: "alphanumeric", algorithm: "mod36" })); // true
+```
+
+Structured IDs are ideal for cases where codes need to be both **human-friendly** and **machine-validated**, such as:
+
+- Anonymous user IDs
+- Invite codes
+- Voucher / coupon codes
+- Access tokens
+- Simple one-time passwords (OTPs)
+
+The **structured-id** library provides a clean, dependency-free way to generate and validate these IDs.
+
 ---
 
 ## Install
@@ -21,13 +61,13 @@ Generate and validate **structured IDs** with ease and flexibility.
 Install the package via npm:
 
 ```bash
-npm i idkit
+npm i structured-id
 ```
 
 or using yarn:
 
 ```bash
-yarn add idkit
+yarn add structured-id
 ```
 
 ---
@@ -35,7 +75,7 @@ yarn add idkit
 ## Quick Start
 
 ```ts
-import { generateId, validateId, formatId, normalizeId } from "idkit";
+import { generateId, validateId, formatId, normalizeId } from "structured-id";
 
 // Generate a default ID: 16 random digits (numeric charset, no checksum)
 const id = generateId();
@@ -103,7 +143,7 @@ You can customize ID generation, validation, and formatting using the following 
 Validate an ID string for correctness, optionally verifying checksum and charset.
 
 ```ts
-import { validateId } from "idkit";
+import { validateId } from "structured-id";
 
 const id = "79927398713"; // Example numeric ID with Luhn checksum
 
@@ -124,7 +164,7 @@ Options:
 Format an ID string by adding separators at regular intervals.
 
 ```ts
-import { formatId } from "idkit";
+import { formatId } from "structured-id";
 
 const id = "1234567890123456";
 
@@ -147,7 +187,7 @@ Options:
 Normalize ID strings by removing all whitespace and separators to obtain the raw ID.
 
 ```ts
-import { normalizeId } from "idkit";
+import { normalizeId } from "structured-id";
 
 const messyId = "1234 5678-9012 3456";
 const normalized = normalizeId(messyId);
@@ -168,7 +208,7 @@ You can use the included checksum helper functions directly if needed:
 Example:
 
 ```ts
-import { luhnValidate, luhnChecksumDigit } from "idkit";
+import { luhnValidate, luhnChecksumDigit } from "structured-id";
 
 const partialId = "7992739871";
 const checksum = luhnChecksumDigit(partialId);
@@ -206,10 +246,10 @@ console.log(luhnValidate(fullId)); // true
 
 ## RNG Options
 
-By default, `id-kit` uses `Math.random()` as the random number generator, but you can enable Web Crypto RNG by setting `useCrypto: true`:
+By default, `structured-id` uses `Math.random()` as the random number generator, but you can enable Web Crypto RNG by setting `useCrypto: true`:
 
 ```ts
-import { generateId } from "idkit";
+import { generateId } from "structured-id";
 
 const id = generateId({ useCrypto: true });
 console.log(id);
@@ -218,7 +258,7 @@ console.log(id);
 You may also provide seeded or custom RNG functions for deterministic ID generation (useful for testing):
 
 ```ts
-import { generateId } from "idkit";
+import { generateId } from "structured-id";
 
 // Custom RNG example
 const customRng = () => {

@@ -42,7 +42,7 @@ function withMockCrypto<T>(mock: CryptoLike, run: () => T): T {
   }
 }
 
-describe("id-kit", () => {
+describe("structured-id", () => {
   // -----------------------------------------------------
   // Numeric (default) — generation & validation
   // -----------------------------------------------------
