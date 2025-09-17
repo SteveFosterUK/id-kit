@@ -42,7 +42,8 @@ console.log("Raw ID:", id);
 console.log("Formatted ID:", formatted);
 // e.g. "AB12-CD34-EF56-GH78"
 
-console.log("Is valid?", validateId(id, { charset: "alphanumeric", algorithm: "mod36" })); // true
+console.log("Is valid?", validateId(id, { charset: "alphanumeric", algorithm: "mod36" }));
+// true
 ```
 
 Structured IDs are ideal for cases where codes need to be both **human-friendly** and **machine-validated**, such as:
