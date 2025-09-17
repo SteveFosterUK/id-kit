@@ -10,7 +10,7 @@ Generate and validate **structured IDs** with ease and flexibility.
 
 [![CI](https://github.com/SteveFosterUK/structured-id/actions/workflows/ci.yml/badge.svg)](https://github.com/SteveFosterUK/structured-id/actions)
 [![npm version](https://img.shields.io/npm/v/structured-id.svg)](https://www.npmjs.com/package/structured-id)
-![License](https://img.shields.io/npm/l/structured-id.svg)
+[![License](https://img.shields.io/npm/l/structured-id)](https://github.com/SteveFosterUK/structured-id/blob/main/LICENSE)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue?logo=typescript)
 ![ESM + CJS](https://img.shields.io/badge/modules-ESM%20%2B%20CJS-green)
 [![GitHub Repo](https://img.shields.io/badge/github-structured--id-181717?logo=github)](https://github.com/SteveFosterUK/structured-id)
