@@ -13,7 +13,7 @@ Generate and validate **structured IDs** with ease and flexibility.
 ![License](https://img.shields.io/npm/l/structured-id.svg)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue?logo=typescript)
 ![ESM + CJS](https://img.shields.io/badge/modules-ESM%20%2B%20CJS-green)
-[![GitHub](https://img.shields.io/badge/GitHub-structured-id-181717?logo=github)](https://github.com/SteveFosterUK/structured-id)
+[![GitHub Repo](https://img.shields.io/badge/github-structured--id-181717?logo=github)](https://github.com/SteveFosterUK/structured-id)
 ---
 
 ## What is a Structured ID?
