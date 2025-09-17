@@ -1,7 +1,7 @@
 {
-  "name": "id-kit",
+  "name": "idkit",
   "version": "0.1.0",
-  "description": "Generate and validate structured numeric IDs (Mullvad-style by default, optional Luhn). Zero-deps TypeScript library.",
+  "description": "Generate and validate structured IDs — numeric or alphanumeric, with optional Luhn or mod36 checksums. Zero dependencies. TypeScript.",
   "license": "MIT",
   "author": "Steve Foster",
   "repository": {
@@ -10,14 +10,18 @@
   },
   "keywords": [
     "id",
+    "id-generator",
     "identifier",
+    "unique-id",
+    "numeric-id",
+    "alphanumeric-id",
     "checksum",
     "luhn",
+    "mod36",
     "typescript",
     "validation",
     "mullvad",
-    "random",
-    "numeric"
+    "random"
   ],
   "type": "module",
   "exports": {

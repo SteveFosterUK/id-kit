@@ -1,54 +1,237 @@
 # id-kit
 
-Generate and validate **structured IDs**.
-- ✅ Supports **numeric** or **alphanumeric (A–Z, 0–9)** charsets
+Generate and validate **structured IDs** with ease and flexibility.
+
+- ✅ Supports **numeric** (0–9) or **alphanumeric (A–Z, 0–9)** charsets
 - ✅ Optional checksum (`luhn` for numeric, `mod36` for alphanumeric)
 - ✅ Flexible formatting (grouping, separators)
-- ✅ Configurable RNG (`Math.random`, Web Crypto, or custom seeded RNG)
+- ✅ Configurable RNG (`Math.random`, Web Crypto via `useCrypto`, or custom seeded RNG)
 - ✅ Zero runtime dependencies • TypeScript types included • ESM + CJS
 
 [![CI](https://github.com/SteveFosterUK/id-kit/actions/workflows/ci.yml/badge.svg)](https://github.com/SteveFosterUK/id-kit/actions)
-
+[![npm version](https://img.shields.io/npm/v/idkit.svg)](https://www.npmjs.com/package/idkit)
+![License](https://img.shields.io/npm/l/idkit.svg)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue?logo=typescript)
+![ESM + CJS](https://img.shields.io/badge/modules-ESM%20%2B%20CJS-green)
+[![GitHub](https://img.shields.io/badge/GitHub-idkit-181717?logo=github)](https://github.com/SteveFosterUK/id-kit)
 ---
 
 ## Install
+
+Install the package via npm:
 
 ```bash
 npm i idkit
 ```
 
+or using yarn:
+
+```bash
+yarn add idkit
+```
+
+---
+
 ## Quick Start
 
 ```ts
-import { generateId, validateId, formatId, normalizeId } from "id-kit";
+import { generateId, validateId, formatId, normalizeId } from "idkit";
 
-// Default: 16 random digits
+// Generate a default ID: 16 random digits (numeric charset, no checksum)
 const id = generateId();
-validateId(id);                    // true
-formatId(id, { separator: " " });  // "1234 5678 9012 3456"
-normalizeId("1234 5678-9012 3456") // "1234567890123456"
 
-// Numeric with Luhn checksum
+console.log("Generated ID:", id);
+// e.g. "1234567890123456"
+
+// Validate the generated ID (numeric, no checksum)
+const isValid = validateId(id);
+console.log("Is valid?", isValid); // true
+
+// Format the ID with spaces every 4 characters
+const formatted = formatId(id, { separator: " " });
+console.log("Formatted ID:", formatted); // e.g. "1234 5678 9012 3456"
+
+// Normalize an ID by removing spaces and separators
+const normalized = normalizeId("1234 5678-9012 3456");
+console.log("Normalized ID:", normalized); // "1234567890123456"
+
+// Generate a numeric ID with Luhn checksum
 const luhnId = generateId({ algorithm: "luhn" });
-validateId(luhnId, { algorithm: "luhn" }); // true
+console.log("Luhn ID:", luhnId);
 
-// Alphanumeric (A–Z, 0–9), no checksum
-const a = generateId({ charset: "alphanumeric" });
+console.log("Luhn ID valid?", validateId(luhnId, { algorithm: "luhn" })); // true
 
-// Alphanumeric with mod36 checksum
-const aChk = generateId({ charset: "alphanumeric", algorithm: "mod36" });
-validateId(aChk, { charset: "alphanumeric", algorithm: "mod36" }); // true
+// Generate an alphanumeric ID (A–Z, 0–9) without checksum
+const alphaNumId = generateId({ charset: "alphanumeric" });
+console.log("Alphanumeric ID:", alphaNumId);
+
+// Generate an alphanumeric ID with mod36 checksum
+const alphaNumChkId = generateId({ charset: "alphanumeric", algorithm: "mod36" });
+console.log("Alphanumeric with checksum:", alphaNumChkId);
+
+console.log("Alphanumeric with checksum valid?", validateId(alphaNumChkId, { charset: "alphanumeric", algorithm: "mod36" })); // true
+
+// Format an alphanumeric ID with dashes every 4 characters
+console.log(formatId(alphaNumId, { separator: "-", groupSize: 4, charset: "alphanumeric" })); // e.g. "AB12-CD34-EF56-GH78"
+
+// Generate an ID using Web Crypto RNG
+const cryptoId = generateId({ useCrypto: true });
+console.log("Crypto RNG ID:", cryptoId);
 ```
 
-## Scripts
+---
 
-```bash
-npm run build
-npm test
-npm run lint
-npm run format
+## Options
+
+You can customize ID generation, validation, and formatting using the following options:
+
+| Option       | Description                                                                                  | Default          |
+|--------------|----------------------------------------------------------------------------------------------|------------------|
+| `totalLength`| Total length of the ID including checksum if used                                           | 16               |
+| `charset`    | Character set to use: `"numeric"` (digits 0–9) or `"alphanumeric"` (A–Z, 0–9)                | `"numeric"`      |
+| `algorithm`  | Checksum algorithm to use: `"luhn"` (numeric), `"mod36"` (alphanumeric), or `"none"`        | `"none"`         |
+| `separator`  | Character to use as group separator in formatting (e.g., `" "`, `"-"`)                       | `undefined`      |
+| `groups`     | Number of groups used for formatting and default length calculation (`groups * groupSize`) | 4 |
+| `groupSize`  | Number of characters per group for formatting                                               | 4                |
+| `rng`        | Custom random number generator function to use (defaults to `Math.random`)                   | `Math.random`    |
+| `useCrypto`  | Use Web Crypto API for RNG instead of `Math.random`                                         | `false`          |
+
+---
+
+## `validateId`
+
+Validate an ID string for correctness, optionally verifying checksum and charset.
+
+```ts
+import { validateId } from "idkit";
+
+const id = "79927398713"; // Example numeric ID with Luhn checksum
+
+// Validate numeric ID with Luhn checksum
+const valid = validateId(id, { algorithm: "luhn" });
+console.log(valid); // true or false
 ```
+
+Options:
+
+- `charset`: `"numeric"` or `"alphanumeric"` (default `"numeric"`)
+- `algorithm`: `"luhn"`, `"mod36"`, or `"none"`
+
+---
+
+## `formatId`
+
+Format an ID string by adding separators at regular intervals.
+
+```ts
+import { formatId } from "idkit";
+
+const id = "1234567890123456";
+
+// Format with dashes every 4 characters
+const formatted = formatId(id, { separator: "-", groupSize: 4 });
+console.log(formatted); // "1234-5678-9012-3456"
+```
+
+Options:
+
+- `groups`: number of groups (default `4`)
+- `charset`: `"numeric"` or `"alphanumeric"` (default `"numeric"`)
+- `separator`: string to insert between groups (e.g., `" "`, `"-"`)
+- `groupSize`: number of characters per group (default `4`)
+
+---
+
+## Normalization helpers
+
+Normalize ID strings by removing all whitespace and separators to obtain the raw ID.
+
+```ts
+import { normalizeId } from "idkit";
+
+const messyId = "1234 5678-9012 3456";
+const normalized = normalizeId(messyId);
+console.log(normalized); // "1234567890123456"
+```
+
+---
+
+## Checksum helpers
+
+You can use the included checksum helper functions directly if needed:
+
+- `luhnChecksumDigit(id: string): string` — Generates a Luhn checksum digit for a numeric string.
+- `luhnValidate(id: string): boolean` — Validates a numeric string using the Luhn algorithm.
+- `mod36CheckChar(id: string): string` — Generates a mod36 checksum character for an alphanumeric string.
+- `mod36Validate(id: string): boolean` — Validates an alphanumeric string using mod36 checksum.
+
+Example:
+
+```ts
+import { luhnValidate, luhnChecksumDigit } from "idkit";
+
+const partialId = "7992739871";
+const checksum = luhnChecksumDigit(partialId);
+const fullId = partialId + checksum;
+
+console.log(luhnValidate(fullId)); // true
+```
+
+---
+
+## Comparison Guide
+
+| Charset       | Algorithm | Description                         | ID Length | Checksum Length | Notes                                |
+|---------------|-----------|-----------------------------------|-----------|-----------------|-------------------------------------|
+| `numeric`     | `luhn`    | Numeric digits with Luhn checksum | 15        | 1               | Common for credit cards and IDs     |
+| `alphanumeric`| `mod36`   | Alphanumeric with mod36 checksum  | 15        | 1               | Supports A–Z and digits 0–9          |
+| `numeric`     | `none`    | Numeric digits only               | 16        | 0               | Simple random numeric IDs            |
+| `alphanumeric`| `none`    | Alphanumeric only                | 16        | 0               | Random alphanumeric IDs              |
+
+---
+
+## Entropy and Rule of Thumb
+
+| Charset       | Bits per Character | Example ID Length | Approximate Entropy (bits) |
+|---------------|--------------------|-------------------|----------------------------|
+| Numeric (0–9) | 3.32               | 16                | 53                         |
+| Alphanumeric (A–Z, 0–9) | 5.17        | 16                | 83                         |
+
+**Rule of Thumb:**
+- Use **numeric + Luhn** for compatibility and simplicity when only digits are allowed.
+- Use **alphanumeric + mod36** when you need a larger character space and stronger entropy per character.
+- Adjust `totalLength` to meet your entropy/security requirements.
+
+---
+
+## RNG Options
+
+By default, `id-kit` uses `Math.random()` as the random number generator, but you can enable Web Crypto RNG by setting `useCrypto: true`:
+
+```ts
+import { generateId } from "idkit";
+
+const id = generateId({ useCrypto: true });
+console.log(id);
+```
+
+You may also provide seeded or custom RNG functions for deterministic ID generation (useful for testing):
+
+```ts
+import { generateId } from "idkit";
+
+// Custom RNG example
+const customRng = () => {
+  // deterministic or seeded RNG implementation
+  return 0.5;
+};
+
+const id = generateId({ rng: customRng });
+console.log(id);
+```
+
+---
 
 ## License
 
-MIT
+MIT © Steve Foster
