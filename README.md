@@ -58,6 +58,14 @@ The **structured-id** library provides a clean, dependency-free way to generate 
 
 ---
 
+## Demo
+
+You can try out structured-id in an interactive demo app:
+
+[https://structured-id-demo.vercel.app](https://structured-id-demo.vercel.app)
+
+---
+
 ## Install
 
 Install the package via npm:

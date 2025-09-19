@@ -8,6 +8,8 @@
     "type": "git",
     "url": "https://github.com/SteveFosterUK/structured-id.git"
   },
+  "bugs": { "url": "https://github.com/SteveFosterUK/structured-id/issues" },
+  "homepage": "https://structured-id-demo.vercel.app/",
   "keywords": [
     "id",
     "id-generator",
