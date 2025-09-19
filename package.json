@@ -1,6 +1,6 @@
 {
   "name": "structured-id",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Generate and validate structured IDs — numeric or alphanumeric, with optional Luhn or mod36 checksums. Zero dependencies. TypeScript.",
   "license": "MIT",
   "author": "Steve Foster",
