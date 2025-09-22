@@ -6,6 +6,7 @@ Generate and validate **structured IDs** with ease and flexibility.
 - ✅ Optional checksum (`luhn` for numeric, `mod36` for alphanumeric)
 - ✅ Flexible formatting (grouping, separators)
 - ✅ Configurable RNG (`Math.random`, Web Crypto via `useCrypto`, or custom seeded RNG)
+- ✅ Pattern support (E.g. `PROMO-###-###` with fixed and random parts)
 - ✅ Zero runtime dependencies • TypeScript types included • ESM + CJS
 
 [![CI](https://github.com/SteveFosterUK/structured-id/actions/workflows/ci.yml/badge.svg)](https://github.com/SteveFosterUK/structured-id/actions)
@@ -26,6 +27,7 @@ Unlike a raw random string, a structured ID follows rules you define at generati
 - **Grouping** — split into chunks for readability (e.g. `1234-5678-9012-3456`).
 - **Charset** — restrict characters (numeric only, or alphanumeric uppercase).
 - **Checksum (optional)** — append a validation digit/character to detect typos.
+- **Patterns** — define custom templates with `#` placeholders for random chars and fixed text.
 
 For example, you can generate a 16-character alphanumeric ID with a mod36 checksum, grouped into 4 groups of 4 characters each, making it easy to read and verify:
 
@@ -43,6 +45,14 @@ console.log("Formatted ID:", formatted);
 // e.g. "AB12-CD34-EF56-GH78"
 
 console.log("Is valid?", validateId(id, { charset: "alphanumeric", algorithm: "mod36" }));
+// true
+
+// generate a promo code using a pattern
+const promo = generateId({ pattern: "PROMO-###-###", charset: "alphanumeric" });
+console.log("Promo code:", promo);
+// e.g. "PROMO-AB1-C3D"
+
+console.log("Promo code valid?", validateId(promo, { pattern: "PROMO-###-###", charset: "alphanumeric" }));
 // true
 ```
 
@@ -131,6 +141,55 @@ console.log("Crypto RNG ID:", cryptoId);
 
 ---
 
+## Patterns
+
+Structured-id supports **patterns** to define custom ID templates using `#` placeholders for random characters and literal characters for fixed text.
+
+- Each `#` in the pattern is replaced with a random character from the selected charset (`numeric` or `alphanumeric`).
+- Literal characters (letters, digits, symbols) in the pattern are included as-is.
+- If a checksum algorithm (`luhn` or `mod36`) is specified, the **last** `#` in the pattern is reserved for the checksum character.
+- When using a pattern, options like `groups`, `groupSize`, `separator`, and `totalLength` are ignored.
+
+### Examples
+
+**Simple numeric pattern:**
+
+```ts
+const id = generateId({ pattern: "###-###" });
+console.log(id); // e.g. "123-456"
+```
+
+**Alphanumeric promo code pattern:**
+
+```ts
+const promo = generateId({ pattern: "PROMO-###-###", charset: "alphanumeric" });
+console.log(promo); // e.g. "PROMO-AB1-C3D"
+```
+
+**Numeric pattern with Luhn checksum:**
+
+```ts
+const idWithLuhn = generateId({ pattern: "ID-####", algorithm: "luhn" });
+console.log(idWithLuhn); // e.g. "ID-1234" where '4' is the checksum
+
+console.log(validateId(idWithLuhn, { pattern: "ID-####", algorithm: "luhn" }));
+// true
+```
+
+**Alphanumeric pattern with mod36 checksum:**
+
+```ts
+const code = generateId({ pattern: "CODE-###-#", charset: "alphanumeric", algorithm: "mod36" });
+console.log(code); // e.g. "CODE-AB3-Z" where 'Z' is the checksum
+
+console.log(validateId(code, { pattern: "CODE-###-#", charset: "alphanumeric", algorithm: "mod36" }));
+// true
+```
+
+Patterns provide a flexible way to mix fixed and random parts in your IDs while ensuring checksum validation when needed.
+
+---
+
 ## Options
 
 You can customize ID generation, validation, and formatting using the following options:
@@ -145,6 +204,7 @@ You can customize ID generation, validation, and formatting using the following 
 | `groupSize`  | Number of characters per group for formatting                                               | 4                |
 | `rng`        | Custom random number generator function to use (defaults to `Math.random`)                   | `Math.random`    |
 | `useCrypto`  | Use Web Crypto API for RNG instead of `Math.random`                                         | `false`          |
+| `pattern`    | A string template where `#` is replaced with a generated character and literals are preserved. The last `#` is reserved for checksum if an algorithm is used. When supplied, `groups`, `groupSize`, `separator`, and `totalLength` are ignored. | `undefined` |
 
 ---
 
@@ -166,6 +226,7 @@ Options:
 
 - `charset`: `"numeric"` or `"alphanumeric"` (default `"numeric"`)
 - `algorithm`: `"luhn"`, `"mod36"`, or `"none"`
+- `pattern`: string template matching the generated pattern (if used)
 
 ---
 
