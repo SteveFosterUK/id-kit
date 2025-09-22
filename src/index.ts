@@ -78,10 +78,6 @@ function buildPatternRegex(pattern: string, charset: Charset): RegExp {
   return new RegExp(`^${out}$`);
 }
 
-function stripNonAlnumUpper(input: string): string {
-  return input.toUpperCase().replace(/[^0-9A-Z]+/g, "");
-}
-
 function lastHashIndex(pattern: string): number {
   const p = pattern.trim();
   let idx = -1;
@@ -149,6 +145,8 @@ export function formatId(input: string, opts: FormatOptions = {}): string {
  * When `pattern` is provided, the last `#` in the pattern is used as the checksum position if an algorithm is selected;
  * the final ID matches the pattern exactly (no extra characters are appended).
  *
+ * Checksum is computed over only the generated `#` characters, ignoring any literals in the pattern.
+ *
  * @param options - Generation options including groups, groupSize, totalLength, separator, rng, useCrypto, algorithm, charset, and pattern.
  * @returns The generated ID string, optionally formatted with groups and separators.
  * @throws If invalid combinations of options are provided or total length is too short.
@@ -186,8 +184,14 @@ export function generateId(options: GenerateOptions = {}): string {
       return built;
     }
 
-    // Compute checksum over the alphanumeric-only view of the body (excluding the checksum slot)
-    const bodyForCheck = stripNonAlnumUpper(built.replace(/#/g, ""));
+    // Compute checksum over only the generated characters where the pattern has '#',
+    // excluding the checksum slot; literals are ignored.
+    let bodyForCheck = "";
+    for (let i = 0; i < pattern.length; i++) {
+      if (pattern[i] === "#" && i !== hashPos) {
+        bodyForCheck += built[i];
+      }
+    }
 
     let checkChar = "";
     if (algo === "luhn") {
@@ -254,6 +258,8 @@ export function generateId(options: GenerateOptions = {}): string {
  * When `pattern` is provided, the last `#` in the pattern is used as the checksum position if an algorithm is selected;
  * the input must match the pattern exactly, with the checksum character in the checksum slot.
  *
+ * Checksum is computed over only the generated `#` characters, ignoring any literals in the pattern.
+ *
  * @param input - The input ID string to validate.
  * @param opts - Validation options including groups, groupSize, totalLength, algorithm, charset, and optional pattern.
  * @returns True if the ID is valid according to the options; false otherwise.
@@ -283,23 +289,26 @@ export function validateId(input: string, opts: ValidateOptions = {}): boolean {
     const reFull = buildPatternRegex(pattern, charset);
     if (!reFull.test(inputStr)) return false;
 
-    // Extract body by removing the checksum character at the hash position
-    if (hashPos >= inputStr.length) return false;
     const checkChar = inputStr[hashPos];
-    const bodyStr = inputStr.slice(0, hashPos) + inputStr.slice(hashPos + 1);
 
-    const normalizedForCheck = stripNonAlnumUpper(bodyStr);
+    // Build the body for checksum from only the generated '#' positions (excluding checksum slot)
+    let bodyForCheck = "";
+    for (let i = 0; i < pattern.length; i++) {
+      if (pattern[i] === "#" && i !== hashPos) {
+        bodyForCheck += inputStr[i];
+      }
+    }
 
     if (algo === "luhn") {
       if (charset !== "numeric") return false;
-      if (!/^\d+$/.test(normalizedForCheck)) return false;
-      const expected = String(luhnChecksumDigit(normalizedForCheck));
+      if (!/^\d+$/.test(bodyForCheck)) return false;
+      const expected = String(luhnChecksumDigit(bodyForCheck));
       return expected === checkChar;
     }
 
     if (algo === "mod36") {
       if (charset !== "alphanumeric") return false;
-      const expected = mod36CheckChar(normalizedForCheck);
+      const expected = mod36CheckChar(bodyForCheck.toUpperCase());
       return expected === checkChar.toUpperCase();
     }
   }

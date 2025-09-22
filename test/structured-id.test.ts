@@ -382,5 +382,78 @@ describe("structured-id", () => {
       // Pattern wins; output must follow pattern exactly (no formatting applied)
       expect(id).toMatch(/^AA-[0-9A-Z]{2}-[0-9A-Z]{2}$/);
     });
+
+    test("generateId(pattern+checksum) throws if pattern has no #", () => {
+      expect(() =>
+        generateId({ charset: "alphanumeric", algorithm: "mod36", pattern: "PROMO", rng: seeded(21) })
+      ).toThrow(/at least one '#'/i);
+    });
+
+    test("numeric Luhn: letter literals are ignored for checksum (prefix/middle/suffix)", () => {
+      const pat = "A###-B#-##C#"; // last '#' is checksum; letters are literals
+      const id = generateId({ charset: "numeric", algorithm: "luhn", pattern: pat, rng: seeded(31) });
+
+      // Pattern must match exactly
+      expect(id).toMatch(/^A\d{3}-B\d-\d{2}C\d$/);
+      expect(validateId(id, { charset: "numeric", algorithm: "luhn", pattern: pat })).toBe(true);
+
+      // Flip the checksum char at the last '#' -> must fail
+      const pos = pat.lastIndexOf("#");
+      const cur = id[pos];
+      const next = String((Number(cur) + 1) % 10);
+      const bad = id.slice(0, pos) + next + id.slice(pos + 1);
+      expect(validateId(bad, { charset: "numeric", algorithm: "luhn", pattern: pat })).toBe(false);
+
+      // Changing a literal should fail pattern validation regardless of checksum
+      const brokenLiteral = id.replace("B", "X");
+      expect(validateId(brokenLiteral, { charset: "numeric", algorithm: "luhn", pattern: pat })).toBe(false);
+    });
+
+    test("pattern with regex-special literals is treated literally", () => {
+      // Ensure parentheses/plus/brackets are literals and not regex operators in matching
+      const pat = "ID(###)+[X]";
+      const id = generateId({ charset: "alphanumeric", pattern: pat, rng: seeded(23) });
+      // Matches exactly: 'ID(' + 3 alnum + ')+[X]'
+      expect(id).toMatch(/^ID\([0-9A-Z]{3}\)\+\[X]$/);
+      expect(validateId(id, { charset: "alphanumeric", pattern: pat })).toBe(true);
+
+      // Mutate a literal and ensure it fails
+      const broken = id.replace("[X]", "[Y]");
+      expect(validateId(broken, { charset: "alphanumeric", pattern: pat })).toBe(false);
+    });
+
+    test("validateId(pattern+algorithm) returns false when checksum requested but pattern has no #", () => {
+      const pat = "PROMO";
+      // Input matches the literal pattern but there is no '#' to host a checksum
+      expect(validateId("PROMO", { charset: "alphanumeric", algorithm: "mod36", pattern: pat })).toBe(false);
+    });
+
+    test("numeric Luhn with literal prefix in pattern (e.g., 'A###') validates and flips correctly", () => {
+      const pat = "A###"; // last '#' is checksum slot; 'A' is a literal
+      const id = generateId({ charset: "numeric", algorithm: "luhn", pattern: pat, rng: seeded(32) });
+      expect(id).toMatch(/^A\d{3}$/);
+      expect(validateId(id, { charset: "numeric", algorithm: "luhn", pattern: pat })).toBe(true);
+
+      // Corrupt checksum at last '#' -> should fail
+      const pos = pat.lastIndexOf("#");
+      const cur = id[pos];
+      const next = String((Number(cur) + 1) % 10);
+      const bad = id.slice(0, pos) + next + id.slice(pos + 1);
+      expect(validateId(bad, { charset: "numeric", algorithm: "luhn", pattern: pat })).toBe(false);
+    });
+
+    test("alphanumeric mod36: literals are ignored for checksum (e.g., 'PROMO-###-#X#')", () => {
+      const pat = "PROMO-###-#X#"; // last '#' is checksum; 'PROMO-' and 'X' are literals
+      const id = generateId({ charset: "alphanumeric", algorithm: "mod36", pattern: pat, rng: seeded(33) });
+      expect(id).toMatch(/^PROMO-[0-9A-Z]{3}-[0-9A-Z]X[0-9A-Z]$/);
+      expect(validateId(id, { charset: "alphanumeric", algorithm: "mod36", pattern: pat })).toBe(true);
+
+      // Corrupt checksum at last '#'
+      const pos = pat.lastIndexOf("#");
+      const cur = id[pos];
+      const flipped = cur === "A" ? "B" : "A";
+      const bad = id.slice(0, pos) + flipped + id.slice(pos + 1);
+      expect(validateId(bad, { charset: "alphanumeric", algorithm: "mod36", pattern: pat })).toBe(false);
+    });
   });
 });
