@@ -14,6 +14,7 @@ export interface GenerateOptions {
   useCrypto?: boolean;
   algorithm?: Algorithm; // default "none" (pure random, Mullvad-style)
   charset?: Charset; // default "numeric" (digits only)
+  pattern?: string;
 }
 
 export interface ValidateOptions {
@@ -22,6 +23,7 @@ export interface ValidateOptions {
   totalLength?: number;
   algorithm?: Algorithm;
   charset?: Charset;
+  pattern?: string;
 }
 
 export interface FormatOptions {
@@ -55,6 +57,36 @@ function getRng(opts: { rng?: () => number; useCrypto?: boolean }): () => number
   }
 
   return Math.random;
+}
+
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function buildPatternRegex(pattern: string, charset: Charset): RegExp {
+  const trimmed = pattern.trim();
+  const klass = charset === "numeric" ? "\\d" : "[0-9A-Z]";
+  let out = "";
+  for (let i = 0; i < trimmed.length; i++) {
+    const ch = trimmed[i];
+    if (ch === "#") {
+      out += klass;
+    } else {
+      out += escapeRegex(ch);
+    }
+  }
+  return new RegExp(`^${out}$`);
+}
+
+function stripNonAlnumUpper(input: string): string {
+  return input.toUpperCase().replace(/[^0-9A-Z]+/g, "");
+}
+
+function lastHashIndex(pattern: string): number {
+  const p = pattern.trim();
+  let idx = -1;
+  for (let i = 0; i < p.length; i++) if (p[i] === "#") idx = i;
+  return idx;
 }
 
 /**
@@ -114,16 +146,70 @@ export function formatId(input: string, opts: FormatOptions = {}): string {
  * Supports numeric or alphanumeric charsets, optional grouping and separators,
  * and optional checksum algorithms ("luhn" for numeric, "mod36" for alphanumeric).
  *
- * @param options - Generation options including groups, groupSize, totalLength, separator, rng, useCrypto, algorithm, and charset.
+ * When `pattern` is provided, the last `#` in the pattern is used as the checksum position if an algorithm is selected;
+ * the final ID matches the pattern exactly (no extra characters are appended).
+ *
+ * @param options - Generation options including groups, groupSize, totalLength, separator, rng, useCrypto, algorithm, charset, and pattern.
  * @returns The generated ID string, optionally formatted with groups and separators.
  * @throws If invalid combinations of options are provided or total length is too short.
  */
 export function generateId(options: GenerateOptions = {}): string {
+  const charset = options.charset ?? "numeric";
+  const algo = options.algorithm ?? "none";
+  const rng = getRng(options);
+
+  if (options.pattern && options.pattern.trim() !== "") {
+    const pattern = options.pattern.trim();
+    const hashPos = lastHashIndex(pattern);
+
+    // If checksum is requested, we require at least one '#' to host it
+    if (algo !== "none" && hashPos === -1) {
+      throw new Error("pattern requires at least one '#' when a checksum algorithm is used");
+    }
+
+    let built = "";
+    for (let i = 0; i < pattern.length; i++) {
+      const ch = pattern[i];
+      if (ch === "#") {
+        // If this is the checksum slot, fill later
+        if (algo !== "none" && i === hashPos) {
+          built += "#"; // placeholder for checksum to compute later
+        } else {
+          built += randChar(rng, charset);
+        }
+      } else {
+        built += ch;
+      }
+    }
+
+    if (algo === "none") {
+      return built;
+    }
+
+    // Compute checksum over the alphanumeric-only view of the body (excluding the checksum slot)
+    const bodyForCheck = stripNonAlnumUpper(built.replace(/#/g, ""));
+
+    let checkChar = "";
+    if (algo === "luhn") {
+      if (charset !== "numeric") throw new Error('algorithm "luhn" requires charset "numeric"');
+      checkChar = String(luhnChecksumDigit(bodyForCheck));
+    } else if (algo === "mod36") {
+      if (charset !== "alphanumeric") throw new Error('algorithm "mod36" requires charset "alphanumeric"');
+      checkChar = mod36CheckChar(bodyForCheck);
+    }
+
+    // Inject checksum into the checksum slot (last '#')
+    let full = "";
+    for (let i = 0; i < built.length; i++) {
+      const ch = built[i];
+      if (ch === "#" && i === hashPos) full += checkChar; else full += ch;
+    }
+    return full;
+  }
+
   const groups = options.groups ?? DEFAULT_GROUPS;
   const groupSize = options.groupSize ?? DEFAULT_GROUP_SIZE;
   const total = options.totalLength ?? groups * groupSize;
-  const charset = options.charset ?? "numeric";
-  const algo = options.algorithm ?? "none";
 
   if (total < 2) throw new Error("generateId: total length must be at least 2");
   if (options.totalLength && options.separator && options.totalLength !== groups * groupSize) {
@@ -135,8 +221,6 @@ export function generateId(options: GenerateOptions = {}): string {
   if (algo === "mod36" && charset !== "alphanumeric") {
     throw new Error('algorithm "mod36" requires charset "alphanumeric"');
   }
-
-  const rng = getRng(options);
 
   // body excludes checksum when an algorithm is chosen
   let bodyLen = total;
@@ -167,8 +251,11 @@ export function generateId(options: GenerateOptions = {}): string {
  * Validates an input ID string against the specified options.
  * Checks length, charset conformity, and optional checksum algorithms.
  *
+ * When `pattern` is provided, the last `#` in the pattern is used as the checksum position if an algorithm is selected;
+ * the input must match the pattern exactly, with the checksum character in the checksum slot.
+ *
  * @param input - The input ID string to validate.
- * @param opts - Validation options including groups, groupSize, totalLength, algorithm, and charset.
+ * @param opts - Validation options including groups, groupSize, totalLength, algorithm, charset, and optional pattern.
  * @returns True if the ID is valid according to the options; false otherwise.
  */
 export function validateId(input: string, opts: ValidateOptions = {}): boolean {
@@ -177,6 +264,45 @@ export function validateId(input: string, opts: ValidateOptions = {}): boolean {
   const expected = opts.totalLength ?? groups * groupSize;
   const charset = opts.charset ?? "numeric";
   const algo = opts.algorithm ?? "none";
+  const pattern = opts.pattern?.trim() ?? "";
+
+  if (pattern) {
+    const inputStr = String(input);
+
+    // No checksum: whole input must match the pattern
+    if (algo === "none") {
+      const re = buildPatternRegex(pattern, charset);
+      return re.test(inputStr);
+    }
+
+    // With checksum: last '#' in the pattern is the checksum position
+    const hashPos = lastHashIndex(pattern);
+    if (hashPos === -1) return false; // checksum demanded but no slot
+
+    // First, the entire input must match the pattern shape
+    const reFull = buildPatternRegex(pattern, charset);
+    if (!reFull.test(inputStr)) return false;
+
+    // Extract body by removing the checksum character at the hash position
+    if (hashPos >= inputStr.length) return false;
+    const checkChar = inputStr[hashPos];
+    const bodyStr = inputStr.slice(0, hashPos) + inputStr.slice(hashPos + 1);
+
+    const normalizedForCheck = stripNonAlnumUpper(bodyStr);
+
+    if (algo === "luhn") {
+      if (charset !== "numeric") return false;
+      if (!/^\d+$/.test(normalizedForCheck)) return false;
+      const expected = String(luhnChecksumDigit(normalizedForCheck));
+      return expected === checkChar;
+    }
+
+    if (algo === "mod36") {
+      if (charset !== "alphanumeric") return false;
+      const expected = mod36CheckChar(normalizedForCheck);
+      return expected === checkChar.toUpperCase();
+    }
+  }
 
   const normalized = mapToCharset(input, charset);
   if (normalized.length !== expected) return false;

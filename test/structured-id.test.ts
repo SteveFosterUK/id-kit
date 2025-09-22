@@ -321,4 +321,66 @@ describe("structured-id", () => {
       expect(() => luhnChecksumDigit("123ABC")).toThrow();
     });
   });
+
+  // -----------------------------------------------------
+  // Patterns
+  // -----------------------------------------------------
+  describe("patterns", () => {
+    test("numeric pattern without checksum: ###-#-###", () => {
+      const id = generateId({ charset: "numeric", pattern: "###-#-###", rng: seeded(11) });
+      expect(id).toMatch(/^\d{3}-\d-\d{3}$/);
+      // validate with the same pattern
+      expect(validateId(id, { charset: "numeric", pattern: "###-#-###" })).toBe(true);
+    });
+
+    test("alphanumeric pattern with mod36 checksum in last #", () => {
+      const pat = "PROMO-###-###";
+      const id = generateId({ charset: "alphanumeric", algorithm: "mod36", pattern: pat, rng: seeded(12) });
+      // Final ID matches the pattern exactly (checksum occupies the last '#')
+      expect(id).toMatch(/^PROMO-[0-9A-Z]{3}-[0-9A-Z]{3}$/);
+      expect(validateId(id, { charset: "alphanumeric", algorithm: "mod36", pattern: pat })).toBe(true);
+
+      // Flip the checksum character at the last '#' position -> must fail
+      const checksumPos = pat.lastIndexOf("#");
+      const cur = id[checksumPos];
+      const flippedChar = cur === "A" ? "B" : "A";
+      const flipped = id.slice(0, checksumPos) + flippedChar + id.slice(checksumPos + 1);
+      expect(validateId(flipped, { charset: "alphanumeric", algorithm: "mod36", pattern: pat })).toBe(false);
+    });
+
+    test("pattern enforces fixed literals (non-#)", () => {
+      const pat = "PROMO-###-###";
+      const id = generateId({ charset: "alphanumeric", pattern: pat, rng: seeded(13) });
+      // change literal 'P' to 'X' should fail pattern validation
+      const broken = "X" + id.slice(1);
+      expect(validateId(broken, { charset: "alphanumeric", pattern: pat })).toBe(false);
+    });
+
+    test("pattern trims leading/trailing whitespace", () => {
+      const id = generateId({ charset: "numeric", pattern: "  ##-##  ", rng: seeded(14) });
+      expect(id).toMatch(/^\d{2}-\d{2}$/);
+      expect(validateId(id, { charset: "numeric", pattern: "  ##-##  " })).toBe(true);
+    });
+
+    test("luhn checksum with numeric pattern: spaces and dashes ignored for checksum", () => {
+      const pat = "#### #### #### ###"; // last '#' is the checksum slot
+      const id = generateId({ charset: "numeric", algorithm: "luhn", pattern: pat, rng: seeded(15) });
+      // Matches the pattern exactly (no extra digit appended)
+      expect(id).toMatch(/^\d{4} \d{4} \d{4} \d{3}$/);
+      expect(validateId(id, { charset: "numeric", algorithm: "luhn", pattern: pat })).toBe(true);
+
+      // Flip the checksum at the last '#' position -> must fail
+      const checksumPos2 = pat.lastIndexOf("#");
+      const cur2 = id[checksumPos2];
+      const nextDigit = String((Number(cur2) + 1) % 10);
+      const bad = id.slice(0, checksumPos2) + nextDigit + id.slice(checksumPos2 + 1);
+      expect(validateId(bad, { charset: "numeric", algorithm: "luhn", pattern: pat })).toBe(false);
+    });
+
+    test("when pattern is provided, separator/groups are ignored on generation", () => {
+      const id = generateId({ charset: "alphanumeric", pattern: "AA-##-##", separator: ".", groups: 10, groupSize: 10, rng: seeded(16) });
+      // Pattern wins; output must follow pattern exactly (no formatting applied)
+      expect(id).toMatch(/^AA-[0-9A-Z]{2}-[0-9A-Z]{2}$/);
+    });
+  });
 });
