@@ -1,6 +1,6 @@
 {
   "name": "structured-id",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Generate and validate structured IDs — numeric or alphanumeric, with optional Luhn or mod36 checksums. Zero dependencies. TypeScript.",
   "license": "MIT",
   "author": "Steve Foster",
@@ -8,7 +8,9 @@
     "type": "git",
     "url": "https://github.com/SteveFosterUK/structured-id.git"
   },
-  "bugs": { "url": "https://github.com/SteveFosterUK/structured-id/issues" },
+  "bugs": {
+    "url": "https://github.com/SteveFosterUK/structured-id/issues"
+  },
   "homepage": "https://structured-id-demo.vercel.app/",
   "keywords": [
     "id",
